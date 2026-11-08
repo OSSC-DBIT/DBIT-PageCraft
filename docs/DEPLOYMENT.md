@@ -11,8 +11,8 @@ Visitors -> Cloudflare edge -> cloudflared.service -> nginx :809x -> app :3000 -
 | Branch | Goes to | Hostname (Cloudflare) | nginx on the server | app (debug) |
 |---|---|---|---|---|
 | any pull request | nowhere, CI only | | | |
-| `dev` | **staging** | `pagecraft-staging.webuildnow.in` | `127.0.0.1:8091` | `127.0.0.1:3091` |
-| `master` | **production** | `pagecraft.webuildnow.in` | `127.0.0.1:8090` | `127.0.0.1:3090` |
+| `dev` | **staging** | `dbitpagecraft-staging.webuildnow.in` | `127.0.0.1:8091` | `127.0.0.1:3091` |
+| `master` | **production** | `dbitpagecraft.webuildnow.in` | `127.0.0.1:8090` | `127.0.0.1:3090` |
 
 The hostnames are the defaults in `deploy/setup-environment.sh` and `.github/workflows/deploy.yml`; change both if you use others.
 
@@ -62,8 +62,8 @@ The script prints the generated admin password once; store it. `gh-runner` is ad
 
 | Subdomain | Domain | Type | URL |
 |---|---|---|---|
-| `pagecraft-staging` | `webuildnow.in` | HTTP | `localhost:8091` |
-| `pagecraft` | `webuildnow.in` | HTTP | `localhost:8090` |
+| `dbitpagecraft-staging` | `webuildnow.in` | HTTP | `localhost:8091` |
+| `dbitpagecraft` | `webuildnow.in` | HTTP | `localhost:8090` |
 
 Plain HTTP on the loopback hop is fine: TLS ends at Cloudflare, and nginx restores the visitor's IP from `CF-Connecting-IP` and the `https` scheme from `X-Forwarded-Proto`, so rate limits and the Secure cookie flag behave as if the app were public. Recommended: SSL/TLS mode Full, Always Use HTTPS on, and optionally an Access policy in front of `/admin`.
 

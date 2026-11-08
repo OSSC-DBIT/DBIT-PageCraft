@@ -56,6 +56,20 @@ elif [ ! -r "$ENV_FILE" ]; then
   die "env file $ENV_FILE is not readable by $(id -un) (groups: $(id -Gn)). It must be group pagecraft, mode 640, and the runner must be in group pagecraft: sudo usermod -aG pagecraft $(id -un), then restart the runner service and re-run this job"
 fi
 
+# The env file must belong to this environment: a staging file under the production
+# conf would start production on staging's ports with staging's database password.
+envval() { grep -E "^$1=" "$ENV_FILE" | tail -n1 | cut -d= -f2- | tr -d '"'"'" || true; }
+file_env="$(envval APP_ENV)"
+[ "$file_env" = "$ENVIRONMENT" ] || die "$ENV_FILE has APP_ENV=${file_env:-unset}; it must be APP_ENV=$ENVIRONMENT. Fix the file (see deploy/setup-environment.sh) and re-run"
+file_port="$(envval HTTP_PORT)"
+health_port="$(printf '%s' "$HEALTH_URL" | sed -nE 's#^https?://[^:/]+:([0-9]+)/.*#\1#p')"
+[ -z "$health_port" ] || [ "$file_port" = "$health_port" ] || die "$ENV_FILE has HTTP_PORT=${file_port:-unset} but $CONF checks port $health_port; make them match"
+case "$ENVIRONMENT" in
+  staging)    other_project="pagecraft-prod" ;;
+  production) other_project="pagecraft-staging" ;;
+esac
+[ "$PROJECT" != "$other_project" ] || die "$CONF names project $PROJECT, which belongs to the other environment"
+
 mkdir -p "$STATE_DIR"
 exec 9>"$STATE_DIR/${ENVIRONMENT}.lock"
 if command -v flock >/dev/null; then

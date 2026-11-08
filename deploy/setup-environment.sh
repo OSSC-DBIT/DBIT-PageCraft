@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Prepare one PageCraft environment on the OSSC server, in one command. Safe to run again.
 #
-#   sudo bash deploy/setup-environment.sh staging    [--domain pagecraft-staging.webuildnow.in]
-#   sudo bash deploy/setup-environment.sh production [--domain pagecraft.webuildnow.in]
+#   sudo bash deploy/setup-environment.sh staging    [--domain dbitpagecraft-staging.webuildnow.in]
+#   sudo bash deploy/setup-environment.sh production [--domain dbitpagecraft.webuildnow.in]
 #
 # It never overwrites a secret that is already set. It does:
 #   - the `pagecraft` group, and adds the GitHub runner user (gh-runner) to it
@@ -25,10 +25,10 @@ done
 
 case "$ENVIRONMENT" in
   staging)
-    PROJECT=pagecraft-staging; [ -n "$DOMAIN" ] || DOMAIN=pagecraft-staging.webuildnow.in
+    PROJECT=pagecraft-staging; [ -n "$DOMAIN" ] || DOMAIN=dbitpagecraft-staging.webuildnow.in
     HTTP_PORT=8091; APP_PORT=3091 ;;
   production)
-    PROJECT=pagecraft-prod; [ -n "$DOMAIN" ] || DOMAIN=pagecraft.webuildnow.in
+    PROJECT=pagecraft-prod; [ -n "$DOMAIN" ] || DOMAIN=dbitpagecraft.webuildnow.in
     HTTP_PORT=8090; APP_PORT=3090 ;;
   *) echo "usage: sudo bash $0 <staging|production> [--domain host]" >&2; exit 2 ;;
 esac

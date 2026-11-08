@@ -150,7 +150,7 @@ docker compose exec db psql -U pagecraft -d pagecraft   # open a SQL shell
 
 The full guide is in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md). In short, it works like PCMS on the same server:
 
-- Pushing to `dev` runs CI and then deploys **staging** (`pagecraft-staging.webuildnow.in`); pushing to `master` deploys **production** (`pagecraft.webuildnow.in`). The deploy runs on a self-hosted GitHub Actions runner on the server, so no SSH key or server secret is stored in GitHub.
+- Pushing to `dev` runs CI and then deploys **staging** (`dbitpagecraft-staging.webuildnow.in`); pushing to `master` deploys **production** (`dbitpagecraft.webuildnow.in`). The deploy runs on a self-hosted GitHub Actions runner on the server, so no SSH key or server secret is stored in GitHub.
 - Ports per environment: staging nginx `127.0.0.1:8091` and app `3091`, production nginx `127.0.0.1:8090` and app `3090`. PostgreSQL is never published. The server's existing `cloudflared` publishes those loopback ports as the hostnames above.
 - Settings live in `/srv/server-data/<env>/pagecraft/pagecraft.env` (root:pagecraft 640), created by `deploy/setup-environment.sh`. The runner is installed by `deploy/install-runner.sh`.
 - `deploy/deploy.sh` builds `pagecraft-app:<env>-<sha>`, starts the stack, waits for health and checks that `/api/health` reports that version. `deploy/rollback.sh` returns to the previous image. `sudo pagecraft <env> status|logs|psql|rollback` is the day-to-day helper on the server.
