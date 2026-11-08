@@ -97,6 +97,9 @@ api.post('/admin/login',
   (req, res) => {
     if (!auth.configured) return res.status(503).json({ error: 'Admin login is not configured on this server' });
     const { email, password } = req.body || {};
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'email and password must be strings' });
+    }
     if (!auth.verifyCredentials(email, password)) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }

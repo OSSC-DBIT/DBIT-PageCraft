@@ -4,6 +4,7 @@ All notable changes to DBIT PageCraft are recorded here. The format follows [Kee
 
 ## Unreleased
 
+- Admin login rejects non-string email or password with 400 instead of answering 500.
 - Contact address is now osscdbit@gmail.com and the OSSC DBIT attribution links to https://www.linkedin.com/company/ossc-dbit (pages, README, CONTRIBUTING, SECURITY, LICENSE, humans.txt, security.txt). Old Vercel hostname in sitemap, robots.txt, security.txt and README badges replaced with dbit-pagecraft.webuildnow.in. Service worker cache bumped to v5.
 
 ## 2026-11-08 Self-hosting and continuous deployment
