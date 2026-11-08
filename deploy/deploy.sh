@@ -31,7 +31,7 @@ upsert APP_VERSION "$APP_VERSION"
 
 PROJECT="$(grep -E '^COMPOSE_PROJECT_NAME=' .env | cut -d= -f2- || true)"
 HTTP_PORT="$(grep -E '^HTTP_PORT=' .env | cut -d= -f2- || true)"
-HTTP_PORT="${HTTP_PORT:-8080}"
+HTTP_PORT="${HTTP_PORT:-8090}"
 log "project=${PROJECT:-default} image=${APP_IMAGE} version=${APP_VERSION}"
 
 if [ -n "${GHCR_TOKEN:-}" ]; then

@@ -42,7 +42,7 @@ services:
       - "3000"
     # Direct access to the Node app from this machine only (bypasses nginx), for debugging.
     ports:
-      - "127.0.0.1:${APP_PORT:-3000}:3000"
+      - "127.0.0.1:${APP_PORT:-3090}:3000"
     environment:
       NODE_ENV: production
       APP_ENV: ${APP_ENV:-production}
@@ -65,7 +65,7 @@ services:
     # http://nginx:80 inside this network. The host binding below is only for
     # local access / debugging and defaults to loopback.
     ports:
-      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:80"
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8090}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro

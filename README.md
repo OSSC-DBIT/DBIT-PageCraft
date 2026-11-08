@@ -129,12 +129,12 @@ Then open:
 
 | URL | What |
 |-----|------|
-| `http://localhost:8080/` | Assignment Front Page + Activity Book |
-| `http://localhost:8080/project-report` | Project Report generator |
-| `http://localhost:8080/admin` | Admin dashboard (sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`) |
-| `http://localhost:8080/api/health` | Health check (used by Docker), reports `env` and deployed `version` |
+| `http://localhost:8090/` | Assignment Front Page + Activity Book |
+| `http://localhost:8090/project-report` | Project Report generator |
+| `http://localhost:8090/admin` | Admin dashboard (sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`) |
+| `http://localhost:8090/api/health` | Health check (used by Docker), reports `env` and deployed `version` |
 
-nginx binds to `127.0.0.1:HTTP_PORT` (default 8080). Public traffic is meant to arrive through Cloudflare Tunnel, so no port has to be opened on the server.
+nginx binds to `127.0.0.1:HTTP_PORT` (8090 in `.env.example`). Public traffic is meant to arrive through Cloudflare Tunnel, so no port has to be opened on the server.
 
 Useful commands:
 
@@ -151,7 +151,8 @@ docker compose exec db psql -U pagecraft -d pagecraft   # open a SQL shell
 The full guide is in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md). In short:
 
 - One directory per environment on the server (`/opt/pagecraft/staging`, `/opt/pagecraft/production`), each with its own `.env` (`COMPOSE_PROJECT_NAME`, `APP_ENV`, ports, secrets).
-- `COMPOSE_PROFILES=tunnel` plus a `CF_TUNNEL_TOKEN` starts a `cloudflared` container that publishes `http://nginx:80` on your Cloudflare hostname. No inbound ports, TLS terminated by Cloudflare, real visitor IPs restored from `CF-Connecting-IP`.
+- Ports per environment: staging nginx `127.0.0.1:8091` and app `3091`, production nginx `127.0.0.1:8090` and app `3090`. Postgres is never published.
+- The server's existing host-level `cloudflared` publishes those loopback ports as public hostnames (`localhost:8091` and `localhost:8090`). Alternatively `COMPOSE_PROFILES=tunnel` plus a `CF_TUNNEL_TOKEN` starts a `cloudflared` container that publishes `http://nginx:80`. Either way: no inbound ports, TLS terminated by Cloudflare, real visitor IPs restored from `CF-Connecting-IP`.
 - Pushing to `dev` builds the image, pushes it to GHCR and deploys **staging**. Pushing to `master` deploys **production** (protect the `production` environment with required reviewers). A manual run can redeploy any previous image tag for a rollback.
 - Each deploy waits for the health check and verifies the public hostname reports the new version.
 
@@ -187,9 +188,9 @@ All variables are documented in [`.env.example`](./.env.example).
 | `SESSION_HOURS` | Admin session lifetime (default 8) |
 | `COMPOSE_PROJECT_NAME`, `APP_ENV` | Environment identity; non-production sends `X-Robots-Tag: noindex` |
 | `COMPOSE_PROFILES`, `CF_TUNNEL_TOKEN` | `tunnel` + connector token enables the Cloudflare Tunnel container |
-| `HTTP_BIND`, `HTTP_PORT` | Where nginx is bound on the host (default `127.0.0.1:8080`) |
+| `HTTP_BIND`, `HTTP_PORT` | Where nginx is bound on the host (`127.0.0.1:8090` in `.env.example`) |
 | `HTTPS_PORT` | Only with `docker-compose.tls.yml` (direct exposure) |
-| `APP_PORT` | Host port for direct access to the Node app, bound to 127.0.0.1 (3000) |
+| `APP_PORT` | Host port for direct access to the Node app, bound to 127.0.0.1 (3090 in `.env.example`) |
 | `TRUST_PROXY` | Number of trusted proxy hops (1 for the bundled nginx) |
 | `COOKIE_SECURE` | Force the cookie Secure flag on/off; blank = auto from HTTPS |
 
