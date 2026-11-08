@@ -1,4 +1,4 @@
 Contact: mailto:osscdbit@gmail.com
 Preferred-Languages: en
-Canonical: https://dbitpagecraft.webuildnow.in/.well-known/security.txt
+Canonical: https://dbit-pagecraft.webuildnow.in/.well-known/security.txt
 Expires: 2027-06-06T00:00:00.000Z

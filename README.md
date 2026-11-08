@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-dbitpagecraft.webuildnow.in-4f46e5?style=for-the-badge&logo=googlechrome&logoColor=white)](https://dbitpagecraft.webuildnow.in)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-dbit-pagecraft.webuildnow.in-4f46e5?style=for-the-badge&logo=googlechrome&logoColor=white)](https://dbit-pagecraft.webuildnow.in)
 
 [![CI](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/ci.yml/badge.svg)](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/ci.yml)
 [![Deploy](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/deploy.yml/badge.svg)](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/deploy.yml)
@@ -10,7 +10,7 @@
 [![nginx](https://img.shields.io/badge/Proxy-nginx-009639?style=flat-square&logo=nginx&logoColor=white)](./nginx)
 [![Node.js](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933?style=flat-square&logo=nodedotjs&logoColor=white)](./server)
 [![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](./server/schema.sql)
-[![PWA](https://img.shields.io/badge/PWA-Enabled-5a0fc8?style=flat-square&logo=pwa&logoColor=white)](https://dbitpagecraft.webuildnow.in)
+[![PWA](https://img.shields.io/badge/PWA-Enabled-5a0fc8?style=flat-square&logo=pwa&logoColor=white)](https://dbit-pagecraft.webuildnow.in)
 [![Vanilla JS](https://img.shields.io/badge/Frontend-Vanilla%20JS-f7df1e?style=flat-square&logo=javascript&logoColor=black)](./public/js)
 [![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](./LICENSE)
 
@@ -151,7 +151,7 @@ docker compose exec db psql -U pagecraft -d pagecraft   # open a SQL shell
 
 The full guide is in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md). In short, it works like PCMS on the same server:
 
-- Pushing to `dev` runs CI and then deploys **staging** (`dbitpagecraft-staging.webuildnow.in`); pushing to `master` deploys **production** (`dbitpagecraft.webuildnow.in`). The deploy runs on a self-hosted GitHub Actions runner on the server, so no SSH key or server secret is stored in GitHub.
+- Pushing to `dev` runs CI and then deploys **staging** (`dbit-pagecraft-staging.webuildnow.in`); pushing to `master` deploys **production** (`dbit-pagecraft.webuildnow.in`). The deploy runs on a self-hosted GitHub Actions runner on the server, so no SSH key or server secret is stored in GitHub.
 - Ports per environment: staging nginx `127.0.0.1:8091` and app `3091`, production nginx `127.0.0.1:8090` and app `3090`. PostgreSQL is never published. The server's existing `cloudflared` publishes those loopback ports as the hostnames above.
 - Settings live in `/srv/server-data/<env>/pagecraft/pagecraft.env` (root:pagecraft 640), created by `deploy/setup-environment.sh`. The runner is installed by `deploy/install-runner.sh`.
 - `deploy/deploy.sh` builds `pagecraft-app:<env>-<sha>`, starts the stack, waits for health and checks that `/api/health` reports that version. `deploy/rollback.sh` returns to the previous image. `sudo pagecraft <env> status|logs|psql|rollback` is the day-to-day helper on the server.

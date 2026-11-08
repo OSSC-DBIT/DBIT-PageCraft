@@ -4,7 +4,7 @@ All notable changes to DBIT PageCraft are recorded here. The format follows [Kee
 
 ## Unreleased
 
-- Contact address is now osscdbit@gmail.com and the OSSC DBIT attribution links to https://www.linkedin.com/company/ossc-dbit (pages, README, CONTRIBUTING, SECURITY, LICENSE, humans.txt, security.txt). Old Vercel hostname in sitemap, robots.txt, security.txt and README badges replaced with dbitpagecraft.webuildnow.in. Service worker cache bumped to v5.
+- Contact address is now osscdbit@gmail.com and the OSSC DBIT attribution links to https://www.linkedin.com/company/ossc-dbit (pages, README, CONTRIBUTING, SECURITY, LICENSE, humans.txt, security.txt). Old Vercel hostname in sitemap, robots.txt, security.txt and README badges replaced with dbit-pagecraft.webuildnow.in. Service worker cache bumped to v5.
 
 ## 2026-11-08 Self-hosting and continuous deployment
 
@@ -39,7 +39,7 @@ Moved off Vercel and Supabase onto the OSSC server. Deploys run through GitHub A
 ### Operations
 - Ports on the OSSC server: staging nginx `127.0.0.1:8091` and app `3091`; production nginx `127.0.0.1:8090` and app `3090`.
 - Settings live in `/srv/server-data/<env>/pagecraft/pagecraft.env` (root:pagecraft 640); `/etc/pagecraft/<env>.conf` says where things are.
-- Public hostnames `dbitpagecraft-staging.webuildnow.in` and `dbitpagecraft.webuildnow.in` through the server's existing Cloudflare Tunnel.
+- Public hostnames `dbit-pagecraft-staging.webuildnow.in` and `dbit-pagecraft.webuildnow.in` through the server's existing Cloudflare Tunnel.
 - `master` and `dev` are protected: pull request plus passing CI required, no force pushes.
 
 ## 2026-08-27
