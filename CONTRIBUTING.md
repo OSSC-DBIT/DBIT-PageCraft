@@ -1,6 +1,6 @@
 # Contributing to DBIT PageCraft
 
-Thanks for your interest in contributing! DBIT PageCraft is maintained and managed by OSSC DBIT. Here's how you can help.
+Thanks for your interest in contributing! DBIT PageCraft is maintained and managed by [OSSC DBIT](https://www.linkedin.com/company/ossc-dbit). Here's how you can help.
 
 ## Getting Started
 
@@ -37,8 +37,8 @@ DBIT-PageCraft/
 | Branch | What it is | Where it goes |
 |---|---|---|
 | `feature/*`, `fix/*` | your work | nowhere; CI runs on the pull request |
-| `dev` | integration branch | **staging** at `dbitpagecraft-staging.webuildnow.in`, deployed automatically |
-| `master` | released code | **production** at `dbitpagecraft.webuildnow.in`, deployed automatically |
+| `dev` | integration branch | **staging** at `dbit-pagecraft-staging.webuildnow.in`, deployed automatically |
+| `master` | released code | **production** at `dbit-pagecraft.webuildnow.in`, deployed automatically |
 
 Both `dev` and `master` are protected: changes arrive through a pull request, the CI check must pass and the branch must be up to date, force pushes and deletions are blocked. The flow is feature branch -> pull request into `dev` -> check it on staging -> pull request from `dev` into `master`.
 
@@ -85,4 +85,4 @@ What CI checks on every pull request: syntax of all server, browser and deploy s
 
 ## Questions?
 
-Reach out at [mithungowda.b7411@gmail.com](mailto:mithungowda.b7411@gmail.com)
+Reach out at [osscdbit@gmail.com](mailto:osscdbit@gmail.com) or on [LinkedIn](https://www.linkedin.com/company/ossc-dbit).

@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability, please report it responsibly:
 
-- Email: [mithungowda.b7411@gmail.com](mailto:mithungowda.b7411@gmail.com)
+- Email: [osscdbit@gmail.com](mailto:osscdbit@gmail.com) (OSSC DBIT, [LinkedIn](https://www.linkedin.com/company/ossc-dbit))
 - Do NOT open a public issue for security vulnerabilities
 
 We will acknowledge your report within 48 hours and provide a fix as soon as possible.
