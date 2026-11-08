@@ -98,16 +98,16 @@ DBIT-PageCraft/
 │   ├── conf.d/proxy.inc, proxy_headers.inc
 │   └── certs/                     # Certificates for direct TLS only (git-ignored)
 │
-├── deploy/deploy.sh               # Runs on the server: pull image, restart, verify health
-├── docs/DEPLOYMENT.md             # Staging + production setup with Cloudflare Tunnel
+├── deploy/                        # Server scripts: install-runner, setup-environment, deploy, rollback
+├── docs/DEPLOYMENT.md             # Staging + production on the OSSC server (runner, tunnel, ports)
 ├── Dockerfile                     # App image (node:22-alpine)
 ├── docker-compose.yml             # cloudflared (optional) + nginx + app + PostgreSQL
 ├── docker-compose.tls.yml         # Override: publish nginx on 0.0.0.0:80/443 (no tunnel)
 ├── .env.example                   # All configuration variables
 ├── package.json                   # express + pg, npm scripts
 └── .github/workflows/
-    ├── ci.yml                     # PRs: syntax check, image build, nginx -t, compose validation
-    └── deploy.yml                 # dev -> staging, master -> production (GHCR image + SSH deploy)
+    ├── ci.yml                     # PRs and deploys: syntax, dashes, image build, nginx -t, compose, smoke test
+    └── deploy.yml                 # dev -> staging, master -> production on the self-hosted runner
 ```
 
 ## Quick Start (Docker)
@@ -146,15 +146,14 @@ docker compose down -v            # stop AND delete the database volume
 docker compose exec db psql -U pagecraft -d pagecraft   # open a SQL shell
 ```
 
-## Staging and Production (Cloudflare Tunnel + GitHub Actions)
+## Staging and Production (OSSC server, Cloudflare Tunnel, GitHub Actions)
 
-The full guide is in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md). In short:
+The full guide is in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md). In short, it works like PCMS on the same server:
 
-- One directory per environment on the server (`/srv/server-data/staging`, `/srv/server-data/production`), each with its own `.env` (`COMPOSE_PROJECT_NAME`, `APP_ENV`, ports, secrets). `deploy/bootstrap-server.sh` creates them; `deploy/github-setup.sh` configures the GitHub environments, secrets and variables.
-- Ports per environment: staging nginx `127.0.0.1:8091` and app `3091`, production nginx `127.0.0.1:8090` and app `3090`. Postgres is never published.
-- The server's existing host-level `cloudflared` publishes those loopback ports as public hostnames (`localhost:8091` and `localhost:8090`). Alternatively `COMPOSE_PROFILES=tunnel` plus a `CF_TUNNEL_TOKEN` starts a `cloudflared` container that publishes `http://nginx:80`. Either way: no inbound ports, TLS terminated by Cloudflare, real visitor IPs restored from `CF-Connecting-IP`.
-- Pushing to `dev` builds the image, pushes it to GHCR and deploys **staging**. Pushing to `master` deploys **production** (protect the `production` environment with required reviewers). A manual run can redeploy any previous image tag for a rollback.
-- Each deploy waits for the health check and verifies the public hostname reports the new version.
+- Pushing to `dev` runs CI and then deploys **staging** (`pagecraft-staging.webuildnow.in`); pushing to `master` deploys **production** (`pagecraft.webuildnow.in`). The deploy runs on a self-hosted GitHub Actions runner on the server, so no SSH key or server secret is stored in GitHub.
+- Ports per environment: staging nginx `127.0.0.1:8091` and app `3091`, production nginx `127.0.0.1:8090` and app `3090`. PostgreSQL is never published. The server's existing `cloudflared` publishes those loopback ports as the hostnames above.
+- Settings live in `/srv/server-data/<env>/pagecraft/pagecraft.env` (root:pagecraft 640), created by `deploy/setup-environment.sh`. The runner is installed by `deploy/install-runner.sh`.
+- `deploy/deploy.sh` builds `pagecraft-app:<env>-<sha>`, starts the stack, waits for health and checks that `/api/health` reports that version. `deploy/rollback.sh` returns to the previous image. `sudo pagecraft <env> status|logs|psql|rollback` is the day-to-day helper on the server.
 
 ### Direct HTTPS without the tunnel
 

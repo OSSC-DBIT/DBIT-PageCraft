@@ -1,13 +1,23 @@
 name: CI
 
 on:
+  # Every pull request. Pushes to dev and master run this through deploy.yml, which
+  # deploys only after it passes, so it is not triggered twice for them.
   pull_request:
+  workflow_call:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
     name: Syntax check, Docker build, nginx config
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -19,10 +29,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Syntax-check server and browser scripts
+      - name: Syntax-check server, browser and deploy scripts
         run: |
           for f in server/*.js public/js/*.js public/sw.js; do
             node --check "$f"
+          done
+          for f in deploy/*.sh; do
+            bash -n "$f"
           done
 
       - name: Reject em and en dashes
@@ -51,3 +64,22 @@ jobs:
         run: |
           docker compose -f docker-compose.yml config -q
           docker compose -f docker-compose.yml -f docker-compose.tls.yml config -q
+
+      - name: Smoke test the built image
+        env:
+          POSTGRES_PASSWORD: ci-password
+          ADMIN_EMAIL: ci@example.com
+          ADMIN_PASSWORD: ci-password
+          SESSION_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
+          APP_IMAGE: dbit-pagecraft:ci
+          APP_VERSION: ci
+          HTTP_PORT: 18090
+          APP_PORT: 13090
+        run: |
+          docker compose -p pagecraft-ci up -d --no-build --wait db app nginx
+          body="$(curl -fsS http://127.0.0.1:18090/api/health)"
+          echo "$body"
+          case "$body" in *'"version":"ci"'*) ;; *) echo "::error::health did not report version ci"; exit 1 ;; esac
+          curl -fsS -o /dev/null http://127.0.0.1:18090/
+          curl -fsS -o /dev/null http://127.0.0.1:18090/project-report
+          docker compose -p pagecraft-ci down -v

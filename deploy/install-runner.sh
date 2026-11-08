@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Install the self-hosted GitHub Actions runner for this repository on the OSSC server.
+#
+#   sudo bash deploy/install-runner.sh <registration-token>
+#
+# The token comes from GitHub: the repository > Settings > Actions > Runners >
+# New self-hosted runner > Linux (the value after --token, valid for one hour).
+#
+# One runner per repository, as for PCMS: this one lives in /srv/actions-runner-pagecraft,
+# runs as the existing `gh-runner` user (created if missing), carries the label `pagecraft`
+# and is installed as a systemd service. Safe to run again: an installed runner is left alone.
+set -euo pipefail
+
+TOKEN="${1:-}"
+[ -n "$TOKEN" ] || { echo "usage: sudo bash $0 <registration-token>" >&2; exit 2; }
+[ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 1; }
+
+REPO_URL="${REPO_URL:-https://github.com/OSSC-DBIT/DBIT-PageCraft}"
+RUNNER_DIR="${RUNNER_DIR:-/srv/actions-runner-pagecraft}"
+RUNNER_USER="${RUNNER_USER:-gh-runner}"
+RUNNER_NAME="${RUNNER_NAME:-ossc-server-pagecraft}"
+LABELS="${LABELS:-pagecraft}"
+
+say() { printf '\n== %s\n' "$*"; }
+note() { printf '   %s\n' "$*"; }
+
+say "user $RUNNER_USER"
+if ! id "$RUNNER_USER" >/dev/null 2>&1; then
+  useradd --system --create-home --home-dir "/home/$RUNNER_USER" --shell /bin/bash "$RUNNER_USER"
+  note "created"
+fi
+usermod -aG docker "$RUNNER_USER"
+groupadd -f pagecraft && usermod -aG pagecraft "$RUNNER_USER"
+note "in groups: $(id -nG "$RUNNER_USER")"
+
+say "runner in $RUNNER_DIR"
+if [ -f "$RUNNER_DIR/.runner" ]; then
+  note "already configured; nothing to do. Status: systemctl status 'actions.runner.*'"
+  exit 0
+fi
+install -d -o "$RUNNER_USER" -g "$RUNNER_USER" "$RUNNER_DIR"
+
+version="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE '[0-9.]+')"
+[ -n "$version" ] || { echo "could not determine the latest runner version" >&2; exit 1; }
+tarball="actions-runner-linux-x64-${version}.tar.gz"
+note "downloading runner $version"
+curl -fsSL -o "/tmp/$tarball" "https://github.com/actions/runner/releases/download/v${version}/${tarball}"
+tar -xzf "/tmp/$tarball" -C "$RUNNER_DIR"
+rm -f "/tmp/$tarball"
+chown -R "$RUNNER_USER":"$RUNNER_USER" "$RUNNER_DIR"
+
+note "registering with $REPO_URL as $RUNNER_NAME (labels: $LABELS)"
+sudo -u "$RUNNER_USER" bash -c "cd '$RUNNER_DIR' && ./config.sh --unattended --url '$REPO_URL' --token '$TOKEN' --name '$RUNNER_NAME' --labels '$LABELS' --work _work --replace"
+
+say "service"
+cd "$RUNNER_DIR"
+./svc.sh install "$RUNNER_USER"
+./svc.sh start
+install -d -o "$RUNNER_USER" -g "$RUNNER_USER" /var/lib/pagecraft-deploy
+note "installed. GitHub > Settings > Actions > Runners should now list $RUNNER_NAME as Idle."
+note "next: sudo bash deploy/setup-environment.sh staging  (and production)"

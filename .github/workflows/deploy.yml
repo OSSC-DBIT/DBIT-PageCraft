@@ -1,222 +1,80 @@
-# Build the app image, push it to GHCR and deploy it over SSH.
-#
-#   push to dev     -> staging
-#   push to master  -> production (GitHub Environment "production" can require approval)
-#   workflow_dispatch -> pick the environment, optionally redeploy an existing image tag (rollback)
-#
-# Per-environment configuration lives in GitHub > Settings > Environments:
-#   secrets: SSH_HOST, SSH_USER, SSH_PRIVATE_KEY, DEPLOY_PATH, [SSH_PORT],
-#            [CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET]  (SSH through Cloudflare Access)
-#   variables: PUBLIC_HOST   (e.g. staging.pagecraft.example.com)
-# See docs/DEPLOYMENT.md
-
 name: Deploy
+
+# Continuous deployment to the OSSC server, the same way as PCMS:
+#   push to dev     -> CI -> staging     (https://pagecraft-staging.webuildnow.in)
+#   push to master  -> CI -> production  (https://pagecraft.webuildnow.in)
+# A deploy runs only after CI passes on GitHub-hosted runners. The deploy itself runs on
+# the self-hosted runner on the server (label "pagecraft"), which connects out to GitHub,
+# so nothing on the server is exposed and no server secret is stored in GitHub.
+# See docs/DEPLOYMENT.md.
 
 on:
   push:
     branches: [dev, master]
+  # Redeploy by hand (Actions > Deploy > Run workflow). Production only from master.
   workflow_dispatch:
     inputs:
       environment:
-        description: Target environment
+        description: Where to deploy the selected branch
         type: choice
         options: [staging, production]
-        required: true
-      image_tag:
-        description: Existing image tag (git sha) to deploy instead of building. Leave empty to build this commit.
-        required: false
-        default: ""
+        default: staging
 
 permissions:
   contents: read
-  packages: write
-
-concurrency:
-  group: deploy-${{ github.event.inputs.environment || github.ref_name }}
-  cancel-in-progress: false
-
-env:
-  IMAGE_NAME: dbit-pagecraft
 
 jobs:
-  prepare:
-    name: Resolve target
-    runs-on: ubuntu-latest
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  target:
+    name: Pick the environment
+    runs-on: ubuntu-24.04
     outputs:
-      environment: ${{ steps.resolve.outputs.environment }}
-      image: ${{ steps.resolve.outputs.image }}
-      tag: ${{ steps.resolve.outputs.tag }}
-      build: ${{ steps.resolve.outputs.build }}
+      environment: ${{ steps.pick.outputs.environment }}
+      url: ${{ steps.pick.outputs.url }}
     steps:
-      - id: resolve
+      - id: pick
+        env:
+          REF: ${{ github.ref }}
+          EVENT: ${{ github.event_name }}
+          WANTED: ${{ inputs.environment }}
         run: |
-          if [ -n "${{ github.event.inputs.environment }}" ]; then
-            env="${{ github.event.inputs.environment }}"
-          elif [ "${{ github.ref_name }}" = "master" ]; then
-            env="production"
-          else
-            env="staging"
+          if [ "$EVENT" = workflow_dispatch ]; then env="$WANTED"
+          elif [ "$REF" = refs/heads/master ]; then env=production
+          elif [ "$REF" = refs/heads/dev ]; then env=staging
+          else echo "::error::no environment for $REF"; exit 1; fi
+          if [ "$env" = production ] && [ "$REF" != refs/heads/master ]; then
+            echo "::error::production deploys only from master (this run is on $REF)"; exit 1
           fi
-          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
-          tag="${{ github.event.inputs.image_tag }}"
-          build="true"
-          if [ -n "$tag" ]; then build="false"; else tag="${{ github.sha }}"; fi
+          case "$env" in
+            production) url=https://pagecraft.webuildnow.in ;;
+            *)          url=https://pagecraft-staging.webuildnow.in ;;
+          esac
           echo "environment=$env" >> "$GITHUB_OUTPUT"
-          echo "image=ghcr.io/$owner/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "build=$build" >> "$GITHUB_OUTPUT"
-          echo "Deploying $tag to $env"
-
-  build:
-    name: Check and build image
-    needs: prepare
-    if: needs.prepare.outputs.build == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Syntax-check scripts
-        run: |
-          for f in server/*.js public/js/*.js public/sw.js; do node --check "$f"; done
-
-      - name: Validate nginx configuration
-        run: |
-          docker run --rm \
-            -v "$PWD/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
-            -v "$PWD/nginx/conf.d:/etc/nginx/conf.d:ro" \
-            --add-host app:127.0.0.1 \
-            nginx:1.27-alpine nginx -t
-
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.tag }}
-            ${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.environment }}
-            ${{ needs.prepare.outputs.environment == 'production' && format('{0}:latest', needs.prepare.outputs.image) || '' }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.title=DBIT PageCraft
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deploying $REF to $env"
 
   deploy:
-    name: Deploy to ${{ needs.prepare.outputs.environment }}
-    needs: [prepare, build]
-    if: always() && needs.prepare.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped')
-    runs-on: ubuntu-latest
+    name: Deploy to ${{ needs.target.outputs.environment }}
+    needs: [ci, target]
+    # The runner registered on the OSSC server with the label "pagecraft".
+    runs-on: [self-hosted, linux, pagecraft]
+    timeout-minutes: 30
+    # GitHub Environment: deployment history, and "Required reviewers" on Production
+    # makes a push to master wait for approval before the runner starts.
     environment:
-      name: ${{ needs.prepare.outputs.environment }}
-      url: https://${{ vars.PUBLIC_HOST }}
-    env:
-      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      name: ${{ needs.target.outputs.environment }}
+      url: ${{ needs.target.outputs.url }}
+    # One deploy per environment at a time; a deploy in progress is never cancelled
+    # halfway, the next one waits.
+    concurrency:
+      group: deploy-${{ needs.target.outputs.environment }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
-
-      # Until the environment secrets exist, the job logs a notice and stops
-      # instead of failing (the image was still built and pushed to GHCR).
-      - name: Check environment configuration
-        id: cfg
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-        run: |
-          missing=""
-          for v in SSH_HOST SSH_USER SSH_PRIVATE_KEY DEPLOY_PATH; do
-            [ -z "${!v}" ] && missing="$missing $v"
-          done
-          if [ -n "$missing" ]; then
-            echo "::notice::Deployment skipped: environment '${{ needs.prepare.outputs.environment }}' is missing secrets:$missing (see docs/DEPLOYMENT.md)"
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Configure SSH
-        if: steps.cfg.outputs.ready == 'true'
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-        run: |
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          {
-            echo "Host target"
-            echo "  HostName $SSH_HOST"
-            echo "  User $SSH_USER"
-            echo "  Port $SSH_PORT"
-            echo "  IdentityFile ~/.ssh/deploy_key"
-            echo "  IdentitiesOnly yes"
-            echo "  StrictHostKeyChecking accept-new"
-            echo "  ServerAliveInterval 30"
-          } > ~/.ssh/config
-          # SSH exposed through Cloudflare Access (Zero Trust) instead of a public port
-          if [ -n "$CF_ACCESS_CLIENT_ID" ]; then
-            curl -fsSL -o /tmp/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-            sudo install -m 0755 /tmp/cloudflared /usr/local/bin/cloudflared
-            echo "  ProxyCommand cloudflared access ssh --hostname %h --service-token-id $CF_ACCESS_CLIENT_ID --service-token-secret $CF_ACCESS_CLIENT_SECRET" >> ~/.ssh/config
-          fi
-          ssh target 'echo "connected to $(hostname) as $(whoami)"'
-
-      - name: Sync deployment files
-        if: steps.cfg.outputs.ready == 'true'
-        env:
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-        run: |
-          ssh target "mkdir -p '$DEPLOY_PATH/nginx/conf.d' '$DEPLOY_PATH/nginx/certs' '$DEPLOY_PATH/deploy'"
-          # .env, nginx/certs and nginx/conf.d/tls.conf are server-managed and never overwritten.
-          rsync -az -e ssh docker-compose.yml docker-compose.tls.yml .env.example "target:$DEPLOY_PATH/"
-          rsync -az -e ssh nginx/nginx.conf "target:$DEPLOY_PATH/nginx/"
-          rsync -az --delete --exclude 'tls.conf' -e ssh nginx/conf.d/ "target:$DEPLOY_PATH/nginx/conf.d/"
-          rsync -az --delete -e ssh deploy/ "target:$DEPLOY_PATH/deploy/"
-          ssh target "chmod +x '$DEPLOY_PATH/deploy/deploy.sh'"
-
-      - name: Run deploy script on server
-        if: steps.cfg.outputs.ready == 'true'
-        env:
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          APP_IMAGE: ${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.tag }}
-          APP_VERSION: ${{ needs.prepare.outputs.tag }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          ssh target "cd '$DEPLOY_PATH' && APP_IMAGE='$APP_IMAGE' APP_VERSION='$APP_VERSION' GHCR_USER='$GHCR_USER' GHCR_TOKEN='$GHCR_TOKEN' bash deploy/deploy.sh"
-
-      - name: Smoke test through Cloudflare
-        if: steps.cfg.outputs.ready == 'true' && vars.PUBLIC_HOST != ''
-        env:
-          PUBLIC_HOST: ${{ vars.PUBLIC_HOST }}
-          EXPECTED: ${{ needs.prepare.outputs.tag }}
-        run: |
-          for i in $(seq 1 10); do
-            body="$(curl -fsS "https://$PUBLIC_HOST/api/health" || true)"
-            echo "$body"
-            case "$body" in *"\"version\":\"$EXPECTED\""*) echo "OK: $PUBLIC_HOST serves $EXPECTED"; exit 0 ;; esac
-            sleep 6
-          done
-          echo "::error::$PUBLIC_HOST did not report version $EXPECTED"; exit 1
+        with:
+          clean: true
+      - name: Deploy
+        run: bash deploy/deploy.sh "${{ needs.target.outputs.environment }}" "$GITHUB_SHA"

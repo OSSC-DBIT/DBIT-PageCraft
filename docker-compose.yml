@@ -1,14 +1,11 @@
 # DBIT PageCraft - self-hosted stack
 #
-#   cloudflared (optional, profile "tunnel") -> nginx -> app (Node.js) -> db (PostgreSQL)
-#
-# One copy of this file per environment on the server, each with its own .env:
-#   /opt/pagecraft/staging/.env      COMPOSE_PROJECT_NAME=pagecraft-staging  APP_ENV=staging
-#   /opt/pagecraft/production/.env   COMPOSE_PROJECT_NAME=pagecraft-prod     APP_ENV=production
+#   cloudflared (host service, or the optional "tunnel" profile) -> nginx -> app (Node.js) -> db (PostgreSQL)
 #
 # Local:   cp .env.example .env && docker compose up -d --build
-# Server:  deployed by .github/workflows/deploy.yml via deploy/deploy.sh (pulls the
-#          image from GHCR, no build on the server).
+# Server:  deploy/deploy.sh <env> <sha> runs this file with
+#          -p <project> --env-file /srv/server-data/<env>/pagecraft/pagecraft.env
+#          and APP_IMAGE / APP_VERSION set to pagecraft-app:<env>-<sha>.
 # Full guide: docs/DEPLOYMENT.md
 
 services:
@@ -31,7 +28,7 @@ services:
     #   - "127.0.0.1:${DB_PORT:-5432}:5432"
 
   app:
-    # Locally: built from this directory. On servers: pulled from GHCR (APP_IMAGE set by deploy.sh).
+    # Built from this directory; deploy.sh tags it pagecraft-app:<env>-<sha> via APP_IMAGE.
     build: .
     image: ${APP_IMAGE:-dbit-pagecraft:local}
     restart: unless-stopped
