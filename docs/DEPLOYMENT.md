@@ -138,7 +138,7 @@ The deploy job syncs the compose and nginx files, runs `deploy/deploy.sh` on the
 ## 6. Manual operations on the server
 
 ```bash
-cd /opt/pagecraft/production
+cd /srv/server-data/production
 
 docker compose ps                          # status and health
 docker compose logs -f app                 # application logs

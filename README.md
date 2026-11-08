@@ -150,7 +150,7 @@ docker compose exec db psql -U pagecraft -d pagecraft   # open a SQL shell
 
 The full guide is in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md). In short:
 
-- One directory per environment on the server (`/opt/pagecraft/staging`, `/opt/pagecraft/production`), each with its own `.env` (`COMPOSE_PROJECT_NAME`, `APP_ENV`, ports, secrets).
+- One directory per environment on the server (`/srv/server-data/staging`, `/srv/server-data/production`), each with its own `.env` (`COMPOSE_PROJECT_NAME`, `APP_ENV`, ports, secrets). `deploy/bootstrap-server.sh` creates them; `deploy/github-setup.sh` configures the GitHub environments, secrets and variables.
 - Ports per environment: staging nginx `127.0.0.1:8091` and app `3091`, production nginx `127.0.0.1:8090` and app `3090`. Postgres is never published.
 - The server's existing host-level `cloudflared` publishes those loopback ports as public hostnames (`localhost:8091` and `localhost:8090`). Alternatively `COMPOSE_PROFILES=tunnel` plus a `CF_TUNNEL_TOKEN` starts a `cloudflared` container that publishes `http://nginx:80`. Either way: no inbound ports, TLS terminated by Cloudflare, real visitor IPs restored from `CF-Connecting-IP`.
 - Pushing to `dev` builds the image, pushes it to GHCR and deploys **staging**. Pushing to `master` deploys **production** (protect the `production` environment with required reviewers). A manual run can redeploy any previous image tag for a rollback.

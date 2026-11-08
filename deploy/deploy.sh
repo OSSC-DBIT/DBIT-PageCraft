@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy/deploy.sh - runs ON THE SERVER inside an environment directory
-# (e.g. /opt/pagecraft/staging). Called by .github/workflows/deploy.yml over SSH,
+# (e.g. /srv/server-data/staging). Called by .github/workflows/deploy.yml over SSH,
 # or by hand for a manual deploy / rollback:
 #
 #   APP_IMAGE=ghcr.io/ossc-dbit/dbit-pagecraft:<git-sha> ./deploy/deploy.sh
