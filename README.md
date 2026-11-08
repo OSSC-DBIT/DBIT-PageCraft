@@ -104,6 +104,7 @@ DBIT-PageCraft/
 ├── docker-compose.yml             # cloudflared (optional) + nginx + app + PostgreSQL
 ├── docker-compose.tls.yml         # Override: publish nginx on 0.0.0.0:80/443 (no tunnel)
 ├── .env.example                   # All configuration variables
+├── CHANGELOG.md                   # What changed in each release
 ├── package.json                   # express + pg, npm scripts
 └── .github/workflows/
     ├── ci.yml                     # PRs and deploys: syntax, dashes, image build, nginx -t, compose, smoke test
