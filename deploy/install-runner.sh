@@ -52,7 +52,8 @@ if [ -n "$SOURCE_DIR" ]; then
   note "copying runner files from $SOURCE_DIR"
   tar -C "$SOURCE_DIR" --exclude=./_work --exclude=./_diag -cf - . | tar -C "$RUNNER_DIR" -xf -
   # The source runner's registration must not come along, or config.sh refuses to run.
-  rm -rf "$RUNNER_DIR/.runner" "$RUNNER_DIR"/.credentials* "$RUNNER_DIR/.service" "$RUNNER_DIR/.path" "$RUNNER_DIR/.env" "$RUNNER_DIR/_work" "$RUNNER_DIR/_diag"
+  # (.runner_migrated and .credentials_migrated count as "configured" too.)
+  rm -rf "$RUNNER_DIR"/.runner* "$RUNNER_DIR"/.credentials* "$RUNNER_DIR/.service" "$RUNNER_DIR/.path" "$RUNNER_DIR/.env" "$RUNNER_DIR/_work" "$RUNNER_DIR/_diag"
 else
   version="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE '[0-9.]+')"
   [ -n "$version" ] || { echo "could not determine the latest runner version" >&2; exit 1; }
