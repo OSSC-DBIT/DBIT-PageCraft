@@ -69,6 +69,13 @@ case "$ENVIRONMENT" in
   production) other_project="pagecraft-staging" ;;
 esac
 [ "$PROJECT" != "$other_project" ] || die "$CONF names project $PROJECT, which belongs to the other environment"
+# The host ports must not be held by another Compose project (typically the other
+# environment started with the wrong ports). Docker would otherwise fail halfway through.
+for port in "$file_port" "$(envval APP_PORT)"; do
+  [ -n "$port" ] || continue
+  owner="$(docker ps --filter "publish=$port" --format '{{.Label "com.docker.compose.project"}}' | sort -u | grep -v "^${PROJECT}$" | head -n1 || true)"
+  [ -z "$owner" ] || die "host port $port is held by Compose project '${owner:-?}'. Fix that project's env file and redeploy it first (it should free the port), then re-run"
+done
 
 mkdir -p "$STATE_DIR"
 exec 9>"$STATE_DIR/${ENVIRONMENT}.lock"

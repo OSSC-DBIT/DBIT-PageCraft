@@ -117,11 +117,16 @@ EOF
 else
   cp -a "$ENV_FILE" "$ENV_FILE.bak-$STAMP"
   note "exists; backup: $ENV_FILE.bak-$STAMP"
-  put_if_empty APP_ENV "$ENVIRONMENT"
+  # APP_ENV is not a secret and must match this environment, so it is always corrected.
+  [ "$(get APP_ENV)" = "$ENVIRONMENT" ] || { put APP_ENV "$ENVIRONMENT"; note "corrected APP_ENV=$ENVIRONMENT"; }
   put_if_empty PUBLIC_URL "https://$DOMAIN"
   put_if_empty HTTP_BIND 127.0.0.1
   put_if_empty HTTP_PORT "$HTTP_PORT"
   put_if_empty APP_PORT "$APP_PORT"
+  for key in HTTP_PORT:$HTTP_PORT APP_PORT:$APP_PORT; do
+    k="${key%%:*}"; want="${key##*:}"; have="$(get "$k")"
+    [ "$have" = "$want" ] || note "WARNING: $k=$have differs from this environment's usual $want (the other environment uses the other pair). Edit $ENV_FILE if that is not intended and run this script again."
+  done
   put_if_empty TRUST_PROXY 1
   put_if_empty COOKIE_SECURE true
   put_if_empty POSTGRES_DB pagecraft
