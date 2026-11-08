@@ -2,8 +2,8 @@
 tmp/
 *.pyc
 
-# Sample PDFs (too large for repo)
-mithun-chem-fp.pdf
+# Sample PDFs (too large for the repo)
+*.pdf
 
 # OS files
 .DS_Store
@@ -12,11 +12,15 @@ Thumbs.db
 # IDE
 .vscode/
 
-# Dependencies (if ever added)
+# Dependencies
 node_modules/
 
-# Environment variables (contain Supabase credentials - NEVER commit)
+# Environment variables (contain database + admin credentials, NEVER commit)
 .env
+.env.*
+!.env.example
 
-# Build artifacts
-# js/config.js is intentionally committed (stub only - no credentials)
+# TLS certificates mounted into nginx
+nginx/certs/*
+!nginx/certs/.gitkeep
+nginx/conf.d/tls.conf

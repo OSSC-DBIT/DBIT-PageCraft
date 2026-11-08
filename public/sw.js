@@ -2,10 +2,12 @@
 // Strategy:
 //   - App shell (HTML, CSS, JS, assets) -> Cache first, then network
 //   - CDN libraries -> Cache first (they are versioned and won't change)
-//   - Supabase API -> Network only (analytics must reach the server)
+//   - /api/* -> Network only (analytics + admin must reach the server)
 //   - Google Fonts -> Cache first
+//
+// Bump CACHE_NAME whenever a precached file (or its ?v= version) changes.
 
-const CACHE_NAME = 'dbit-pagecraft-v3';
+const CACHE_NAME = 'dbit-pagecraft-v4';
 const OFFLINE_PAGE = '/404.html';
 
 // Resources to pre-cache on install (app shell)
@@ -17,14 +19,17 @@ const PRECACHE_URLS = [
   '/admin',
   '/admin.html',
   '/404.html',
+  // Keep these ?v= values identical to the <script>/<link> tags in the HTML,
+  // otherwise the precached entry is never matched.
   '/css/styles.css?v=17',
-  '/css/project-report-styles.css',
-  '/js/script.js?v=17',
-  '/js/project-report-script.js',
+  '/css/project-report-styles.css?v=4',
+  '/js/script.js?v=18',
+  '/js/project-report-script.js?v=6',
+  '/js/admin.js?v=1',
+  '/js/analytics.js?v=1',
   '/js/word-export.js?v=2',
   '/js/form-cache.js?v=1',
   '/js/email-gate.js?v=1',
-  '/js/config.js',
   '/js/pwa.js?v=1',
   '/assets/dblogo.png',
   '/assets/VTU.png',
@@ -39,6 +44,7 @@ const PRECACHE_URLS = [
   'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js',
   'https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
 ];
 
 // ── Install: pre-cache the app shell ─────────────────────────────────────────
@@ -75,8 +81,8 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 1. Supabase API calls - always go to network, never cache
-  if (url.hostname.includes('supabase.co')) {
+  // 1. Our own API - always go to network, never cache
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) {
     return; // let browser handle it normally
   }
 
@@ -95,7 +101,8 @@ self.addEventListener('fetch', (event) => {
   if (
     url.hostname === 'fonts.gstatic.com' ||
     url.hostname === 'cdnjs.cloudflare.com' ||
-    url.hostname === 'unpkg.com'
+    url.hostname === 'unpkg.com' ||
+    url.hostname === 'cdn.jsdelivr.net'
   ) {
     event.respondWith(cacheFirst(request));
     return;

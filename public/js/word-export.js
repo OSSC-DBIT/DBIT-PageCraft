@@ -27,7 +27,7 @@ window.WordExport = (function () {
     const key = img.src || img.currentSrc || '';
     if (_imgCache[key]) return _imgCache[key];
     try {
-      // Already a data URI (e.g. onerror SVG fallback) — use directly.
+      // Already a data URI (e.g. onerror SVG fallback) - use directly.
       if (key.startsWith('data:')) { _imgCache[key] = key; return key; }
       const w = img.naturalWidth || img.width;
       const h = img.naturalHeight || img.height;

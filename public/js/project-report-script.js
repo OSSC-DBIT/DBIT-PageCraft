@@ -1,19 +1,9 @@
 // ── Project Report Generator Script ─────────────────────────────────────────
 
-// ── Analytics - credentials loaded from js/config.js (gitignored) ──
-const SUPABASE_URL      = (window.AppConfig && window.AppConfig.SUPABASE_URL)      || '';
-const SUPABASE_ANON_KEY = (window.AppConfig && window.AppConfig.SUPABASE_ANON_KEY) || '';
-
-async function logGeneration(type) {
-  const url = `${SUPABASE_URL}/rest/v1/generations`;
-  const headers = {
-    'apikey': SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=minimal'
-  };
+// ── Analytics - records are posted to this server's /api/generations ──
+function logGeneration(type) {
   const students = getStudents();
-  const base = {
+  const record = {
     page: 'project-report',
     type,
     student_name: students[0]?.name || '',
@@ -22,11 +12,17 @@ async function logGeneration(type) {
     semester: getVal('semester'),
     branch: getVal('branch'),
   };
-  const email = (window.EmailGate && EmailGate.get()) || '';
-  try {
-    let res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(Object.assign({ email }, base)) });
-    if (!res.ok) { await fetch(url, { method: 'POST', headers, body: JSON.stringify(base) }); }
-  } catch (_) {}
+  if (window.Analytics) Analytics.log(record);
+}
+
+// ── Required-field validation (shared by every export path) ──
+const generatorForm = document.getElementById('generator-form');
+function validateRequiredFields() {
+  if (!generatorForm.checkValidity()) {
+    generatorForm.reportValidity();
+    return false;
+  }
+  return true;
 }
 
 // Ask for email on the first export, then remember it (see js/email-gate.js)
@@ -61,19 +57,47 @@ Object.entries(otherFields).forEach(([key, { select, input }]) => {
 
 // ── Students ──
 const studentsContainer = document.getElementById('students-container');
-document.getElementById('btn-add-student').addEventListener('click', () => {
+
+// Single builder for a student row. Values are assigned through DOM properties
+// (never string-interpolated into HTML) so names from the URL API, the cache
+// or the demo button can never inject markup.
+function addStudentEntry(name, usn) {
   const n = studentsContainer.children.length + 1;
   const div = document.createElement('div');
   div.className = 'student-entry';
-  div.innerHTML = `<div class="form-row">
-    <div class="form-group"><label>Name</label><input type="text" class="s-name" placeholder="Student ${n} Name" required></div>
-    <div class="form-group"><label>USN</label><input type="text" class="s-usn" placeholder="USN" required></div>
-    <button type="button" class="btn-remove-student" title="Remove">&times;</button>
-  </div>`;
+  const row = document.createElement('div');
+  row.className = 'form-row';
+
+  function group(labelText, cls, value, placeholder) {
+    const g = document.createElement('div');
+    g.className = 'form-group';
+    const label = document.createElement('label');
+    label.textContent = labelText;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = cls;
+    input.required = true;
+    input.placeholder = placeholder;
+    input.value = value || '';
+    input.addEventListener('input', updatePreview);
+    g.append(label, input);
+    return g;
+  }
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'btn-remove-student';
+  remove.title = 'Remove';
+  remove.textContent = '×';
+  remove.addEventListener('click', () => { div.remove(); updatePreview(); });
+
+  row.append(group('Name', 's-name', name, `Student ${n} Name`), group('USN', 's-usn', usn, 'USN'), remove);
+  div.appendChild(row);
   studentsContainer.appendChild(div);
-  div.querySelectorAll('input').forEach(i => i.addEventListener('input', updatePreview));
-  div.querySelector('.btn-remove-student').addEventListener('click', () => { div.remove(); updatePreview(); });
-});
+  return div;
+}
+
+document.getElementById('btn-add-student').addEventListener('click', () => { addStudentEntry('', ''); });
 studentsContainer.querySelectorAll('input').forEach(i => i.addEventListener('input', updatePreview));
 studentsContainer.querySelectorAll('.btn-remove-student').forEach(btn => {
   btn.addEventListener('click', () => { btn.closest('.student-entry').remove(); updatePreview(); });
@@ -242,6 +266,7 @@ function getSelectedPages() {
 document.getElementById('btn-download').addEventListener('click', async () => {
   const selected = getSelectedPages();
   if (!selected.length) { alert('Select at least one page to download.'); return; }
+  if (!validateRequiredFields()) return;
 
   const btn = document.getElementById('btn-download');
   const originalText = btn.innerHTML;
@@ -299,6 +324,10 @@ uploadInput.addEventListener('change', () => {
 mergeBtn.addEventListener('click', async () => {
   const file = uploadInput.files[0];
   if (!file) return;
+  // Respect the page checkboxes, same as the plain PDF download.
+  const selected = getSelectedPages();
+  if (!selected.length) { alert('Select at least one page to include before merging.'); return; }
+  if (!validateRequiredFields()) return;
 
   const originalText = mergeBtn.innerHTML;
   mergeBtn.innerText = 'Merging...';
@@ -310,7 +339,9 @@ mergeBtn.addEventListener('click', async () => {
     const a4 = { width: 595.28, height: 841.89 };
 
     const pages = document.querySelectorAll('#template-root .page');
-    for (const pageEl of pages) {
+    for (const idx of selected) {
+      const pageEl = pages[idx];
+      if (!pageEl) continue;
       const canvas = await capturePageDesktopMode(pageEl, 2);
       const imgData = canvas.toDataURL('image/png');
       const base64 = imgData.split(',')[1];
@@ -382,18 +413,7 @@ document.getElementById('btn-fill-demo').addEventListener('click', () => {
     { name: 'JAYANTH K', usn: '1DB23CS091' },
   ];
   studentsContainer.innerHTML = '';
-  demoStudents.forEach((s, i) => {
-    const div = document.createElement('div');
-    div.className = 'student-entry';
-    div.innerHTML = `<div class="form-row">
-      <div class="form-group"><label>Name</label><input type="text" class="s-name" value="${s.name}" required></div>
-      <div class="form-group"><label>USN</label><input type="text" class="s-usn" value="${s.usn}" required></div>
-      <button type="button" class="btn-remove-student" title="Remove">&times;</button>
-    </div>`;
-    studentsContainer.appendChild(div);
-    div.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updatePreview));
-    div.querySelector('.btn-remove-student').addEventListener('click', () => { div.remove(); updatePreview(); });
-  });
+  demoStudents.forEach(s => addStudentEntry(s.name, s.usn));
 
   updatePreview();
 });
@@ -442,7 +462,7 @@ function reportPageNumber(numeral) {
     WordExport.p(numeral, { size: 11, mt: 3 });
 }
 
-// PAGE 1 — Title page
+// PAGE 1 - Title page
 function buildReportTitlePageWord(v) {
   const E = WordExport.esc, P = WordExport.p;
   const deptUpper = v.departmentFull.toUpperCase();
@@ -478,7 +498,7 @@ function buildReportTitlePageWord(v) {
   return frameReportPage(s);
 }
 
-// PAGE 2 — Certificate
+// PAGE 2 - Certificate
 function buildReportCertPageWord(v) {
   const E = WordExport.esc, P = WordExport.p;
   const deptUpper = v.departmentFull.toUpperCase();
@@ -519,7 +539,7 @@ function buildReportCertPageWord(v) {
   return frameReportPage(s);
 }
 
-// PAGE 3 — Declaration
+// PAGE 3 - Declaration
 function buildReportDeclPageWord(v) {
   const E = WordExport.esc, P = WordExport.p;
   const deptUpper = v.departmentFull.toUpperCase();
@@ -549,7 +569,7 @@ function buildReportDeclPageWord(v) {
   return frameReportPage(s);
 }
 
-// PAGE 4 — Acknowledgement
+// PAGE 4 - Acknowledgement
 function buildReportAckPageWord(v) {
   const P = WordExport.p;
   let s = '';
@@ -576,6 +596,7 @@ function buildReportWordBody() {
 function exportReportWord(kind) {
   const selected = getSelectedPages();
   if (!selected.length) { alert('Select at least one page to download.'); return; }
+  if (!validateRequiredFields()) return;
   const body = buildReportWordBody();
   const students = getStudents();
   const base = `Project_Report_${(students[0]?.name || 'Report').replace(/\s+/g, '_')}`;
@@ -612,22 +633,10 @@ document.getElementById('btn-export-doc').addEventListener('click', () => {
     return s;
   }
 
-  function attr(v) { return (v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
-
   function rebuildStudents(list) {
     if (!list || !list.length) return;
     studentsContainer.innerHTML = '';
-    list.forEach(st => {
-      const div = document.createElement('div');
-      div.className = 'student-entry';
-      div.innerHTML = '<div class="form-row">' +
-        '<div class="form-group"><label>Name</label><input type="text" class="s-name" value="' + attr(st.name) + '" required></div>' +
-        '<div class="form-group"><label>USN</label><input type="text" class="s-usn" value="' + attr(st.usn) + '" required></div>' +
-        '<button type="button" class="btn-remove-student" title="Remove">&times;</button></div>';
-      studentsContainer.appendChild(div);
-      div.querySelectorAll('input').forEach(i => i.addEventListener('input', updatePreview));
-      div.querySelector('.btn-remove-student').addEventListener('click', () => { div.remove(); updatePreview(); });
-    });
+    list.forEach(st => addStudentEntry(st.name, st.usn));
   }
 
   function apply(s) {
@@ -713,17 +722,8 @@ document.getElementById('btn-export-doc').addEventListener('click', () => {
     studentsContainer.innerHTML = '';
     studentsParam.split(',').forEach(s => {
       const [name, usn] = s.split(':');
-      if (!name) return;
-      const div = document.createElement('div');
-      div.className = 'student-entry';
-      div.innerHTML = `<div class="form-row">
-        <div class="form-group"><label>Name</label><input type="text" class="s-name" value="${name.trim()}" required></div>
-        <div class="form-group"><label>USN</label><input type="text" class="s-usn" value="${(usn||'').trim()}" required></div>
-        <button type="button" class="btn-remove-student" title="Remove">&times;</button>
-      </div>`;
-      studentsContainer.appendChild(div);
-      div.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updatePreview));
-      div.querySelector('.btn-remove-student').addEventListener('click', () => { div.remove(); updatePreview(); });
+      if (!name || !name.trim()) return;
+      addStudentEntry(name.trim(), (usn || '').trim());
     });
   }
 

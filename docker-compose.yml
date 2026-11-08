@@ -1,0 +1,75 @@
+# DBIT PageCraft - self-hosted stack: nginx -> app (Node.js) -> db (PostgreSQL)
+#
+#   cp .env.example .env         # then fill in the values
+#   docker compose up -d --build
+#   open http://localhost/       (admin at /admin)
+#
+# HTTPS: see nginx/conf.d/tls.conf.example
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pagecraft-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pagecraft}
+      POSTGRES_USER: ${POSTGRES_USER:-pagecraft}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pagecraft} -d ${POSTGRES_DB:-pagecraft}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Uncomment to reach the database from the host (psql, DBeaver, backups):
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+
+  app:
+    build: .
+    image: dbit-pagecraft:latest
+    container_name: pagecraft-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "3000"
+    # Direct access to the Node app from this machine only (bypasses nginx).
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-pagecraft}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pagecraft}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?Set ADMIN_EMAIL in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      SESSION_HOURS: ${SESSION_HOURS:-8}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: pagecraft-nginx
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - certbot_www:/var/www/certbot
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/api/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pgdata:
+  certbot_www:

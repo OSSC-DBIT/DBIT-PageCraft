@@ -1,23 +1,12 @@
-// ── Analytics Config ─────────────────────────────────────────────────────────
-// Credentials are loaded from js/config.js (gitignored).
-// See js/config.example.js for the template.
-const SUPABASE_URL      = (window.AppConfig && window.AppConfig.SUPABASE_URL)      || '';
-const SUPABASE_ANON_KEY = (window.AppConfig && window.AppConfig.SUPABASE_ANON_KEY) || '';
-
-async function logGeneration(type) {
-  const url = `${SUPABASE_URL}/rest/v1/generations`;
-  const headers = {
-    'apikey': SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=minimal'
-  };
+// ── Analytics ────────────────────────────────────────────────────────────────
+// Records are posted to this server's /api/generations via js/analytics.js.
+function logGeneration(type) {
   // Build the record from whichever template is active. For Activity Book
   // (IDTL / Project) we map the course + code into the subject columns so the
   // analytics log captures meaningful, identifiable data for every template.
   const isAssignment = currentTemplate === 'assignment';
   const abMeta = (typeof AB_TEMPLATES !== 'undefined') ? AB_TEMPLATES[currentTemplate] : null;
-  const base = {
+  const record = {
     page: 'front-page',
     type,
     student_name: isAssignment ? (formEls.studentName?.value || '') : (abEls.name?.input?.value || ''),
@@ -29,12 +18,7 @@ async function logGeneration(type) {
     section:      isAssignment ? (formEls.section?.value || '')     : (abEls.section?.input?.value || ''),
     branch:       isAssignment ? (getFieldValue('branch') || '')    : (abEls.branch?.input?.value || ''),
   };
-  const email = (window.EmailGate && EmailGate.get()) || '';
-  try {
-    let res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(Object.assign({ email }, base)) });
-    // If the DB has no `email` column yet, retry without it so logging still works.
-    if (!res.ok) { await fetch(url, { method: 'POST', headers, body: JSON.stringify(base) }); }
-  } catch (_) { /* silent fail */ }
+  if (window.Analytics) Analytics.log(record);
 }
 
 // Ask for email on the first export, then remember it (see js/email-gate.js)
@@ -553,12 +537,18 @@ function getActivePageEl() {
       || document.querySelector('#template-root .page[data-tpl="assignment"]');
 }
 
+// Turn free text into a safe filename fragment (letters, digits, underscores).
+function fileSlug(str, fallback) {
+  const s = (str || '').trim().replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+  return s || fallback;
+}
+
 function frontFileBase() {
   if (currentTemplate === 'assignment') {
-    return 'Chemistry_Front_Page_' + (formEls.studentName.value || 'Student').replace(/\s+/g, '_');
+    return fileSlug(formEls.subjectName.value, 'Assignment') + '_Front_Page_' + fileSlug(formEls.studentName.value, 'Student');
   }
   const tag = currentTemplate === 'project' ? 'Project' : 'IDTL';
-  return 'Activity_Book_' + tag + '_' + (abEls.name.input.value || 'Student').replace(/\s+/g, '_');
+  return 'Activity_Book_' + tag + '_' + fileSlug(abEls.name.input.value, 'Student');
 }
 
 function setGroupDisabled(groupEl, disabled) {
@@ -787,4 +777,25 @@ function buildActivityBookWordBody() {
   if (dl === 'png') setTimeout(() => document.getElementById('btn-export-png').click(), 1000);
   if (dl === 'doc') setTimeout(() => document.getElementById('btn-export-doc').click(), 1000);
   if (dl === 'docx') setTimeout(() => document.getElementById('btn-export-docx').click(), 1000);
+})();
+
+// ─── Logo fallbacks ───────────────────────────────────────────────────────────
+// Replaces the former inline onerror="" attributes (blocked by the CSP). If a
+// logo fails to load, show a neutral placeholder (preview pages) or hide it
+// (activity-book header) so the layout does not break.
+(function setupLogoFallbacks() {
+  function placeholder(label) {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140">' +
+      '<circle cx="70" cy="70" r="64" fill="none" stroke="#e5e7eb" stroke-width="2"/>' +
+      '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#9ca3af" ' +
+      'font-family="sans-serif" font-size="14px">' + label + '</text></svg>';
+    return 'data:image/svg+xml;base64,' + btoa(svg);
+  }
+  function onFail(img, handler) {
+    img.addEventListener('error', () => handler(img), { once: true });
+    if (img.complete && img.naturalWidth === 0 && img.src) handler(img);
+  }
+  document.querySelectorAll('.page img.vtu-logo').forEach(img => onFail(img, i => { i.src = placeholder('VTU Logo'); }));
+  document.querySelectorAll('.page img.dbit-logo').forEach(img => onFail(img, i => { i.src = placeholder('DBIT Logo'); }));
+  document.querySelectorAll('.ab-page img.ab-logo').forEach(img => onFail(img, i => { i.style.visibility = 'hidden'; }));
 })();
