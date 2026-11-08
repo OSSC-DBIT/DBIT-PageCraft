@@ -40,13 +40,27 @@ if [ -f "$RUNNER_DIR/.runner" ]; then
 fi
 install -d -o "$RUNNER_USER" -g "$RUNNER_USER" "$RUNNER_DIR"
 
-version="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE '[0-9.]+')"
-[ -n "$version" ] || { echo "could not determine the latest runner version" >&2; exit 1; }
-tarball="actions-runner-linux-x64-${version}.tar.gz"
-note "downloading runner $version"
-curl -fsSL -o "/tmp/$tarball" "https://github.com/actions/runner/releases/download/v${version}/${tarball}"
-tar -xzf "/tmp/$tarball" -C "$RUNNER_DIR"
-rm -f "/tmp/$tarball"
+# Reuse the runner files already on this server (the PCMS runner, or a plain download)
+# instead of downloading again. Registration files and the work folder are not copied.
+SOURCE_DIR="${SOURCE_DIR:-}"
+if [ -z "$SOURCE_DIR" ]; then
+  for d in /srv/actions-runner /home/*/actions-runner /opt/actions-runner; do
+    [ -x "$d/config.sh" ] && [ "$d" != "$RUNNER_DIR" ] && { SOURCE_DIR="$d"; break; }
+  done
+fi
+if [ -n "$SOURCE_DIR" ]; then
+  note "copying runner files from $SOURCE_DIR"
+  tar -C "$SOURCE_DIR" --exclude=./_work --exclude=./_diag --exclude='./.runner' --exclude='./.credentials*' \
+      --exclude='./.service' --exclude='./.path' --exclude='./.env' -cf - . | tar -C "$RUNNER_DIR" -xf -
+else
+  version="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE '[0-9.]+')"
+  [ -n "$version" ] || { echo "could not determine the latest runner version" >&2; exit 1; }
+  tarball="actions-runner-linux-x64-${version}.tar.gz"
+  note "downloading runner $version"
+  curl -fsSL -o "/tmp/$tarball" "https://github.com/actions/runner/releases/download/v${version}/${tarball}"
+  tar -xzf "/tmp/$tarball" -C "$RUNNER_DIR"
+  rm -f "/tmp/$tarball"
+fi
 chown -R "$RUNNER_USER":"$RUNNER_USER" "$RUNNER_DIR"
 
 note "registering with $REPO_URL as $RUNNER_NAME (labels: $LABELS)"
