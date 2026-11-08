@@ -4,7 +4,8 @@
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-dbitpagecraft.mithungowda.in-4f46e5?style=for-the-badge&logo=googlechrome&logoColor=white)](https://dbitpagecraft.mithungowda.in)
 
-[![Build](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/docker-build.yml/badge.svg)](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/docker-build.yml)
+[![CI](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/ci.yml/badge.svg)](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/ci.yml)
+[![Deploy](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/deploy.yml/badge.svg)](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/deploy.yml)
 [![Docker](https://img.shields.io/badge/Deploy-Docker%20Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](./docker-compose.yml)
 [![nginx](https://img.shields.io/badge/Proxy-nginx-009639?style=flat-square&logo=nginx&logoColor=white)](./nginx)
 [![Node.js](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933?style=flat-square&logo=nodedotjs&logoColor=white)](./server)
@@ -92,16 +93,21 @@ DBIT-PageCraft/
 │
 ├── nginx/                         # Reverse proxy
 │   ├── nginx.conf                 # gzip, logging, rate-limit zone, upstream
-│   ├── conf.d/default.conf        # HTTP site (port 80)
-│   ├── conf.d/tls.conf.example    # HTTPS site template (port 443 + redirect)
+│   ├── conf.d/default.conf        # HTTP site (port 80, what cloudflared talks to)
+│   ├── conf.d/tls.conf.example    # HTTPS site template for direct exposure without the tunnel
 │   ├── conf.d/proxy.inc, proxy_headers.inc
-│   └── certs/                     # Put fullchain.pem + privkey.pem here (git-ignored)
+│   └── certs/                     # Certificates for direct TLS only (git-ignored)
 │
+├── deploy/deploy.sh               # Runs on the server: pull image, restart, verify health
+├── docs/DEPLOYMENT.md             # Staging + production setup with Cloudflare Tunnel
 ├── Dockerfile                     # App image (node:22-alpine)
-├── docker-compose.yml             # nginx + app + PostgreSQL
+├── docker-compose.yml             # cloudflared (optional) + nginx + app + PostgreSQL
+├── docker-compose.tls.yml         # Override: publish nginx on 0.0.0.0:80/443 (no tunnel)
 ├── .env.example                   # All configuration variables
 ├── package.json                   # express + pg, npm scripts
-└── .github/workflows/docker-build.yml  # CI: syntax check, image build, nginx -t
+└── .github/workflows/
+    ├── ci.yml                     # PRs: syntax check, image build, nginx -t, compose validation
+    └── deploy.yml                 # dev -> staging, master -> production (GHCR image + SSH deploy)
 ```
 
 ## Quick Start (Docker)
@@ -123,10 +129,12 @@ Then open:
 
 | URL | What |
 |-----|------|
-| `http://localhost/` | Assignment Front Page + Activity Book |
-| `http://localhost/project-report` | Project Report generator |
-| `http://localhost/admin` | Admin dashboard (sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`) |
-| `http://localhost/api/health` | Health check (used by Docker) |
+| `http://localhost:8080/` | Assignment Front Page + Activity Book |
+| `http://localhost:8080/project-report` | Project Report generator |
+| `http://localhost:8080/admin` | Admin dashboard (sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`) |
+| `http://localhost:8080/api/health` | Health check (used by Docker), reports `env` and deployed `version` |
+
+nginx binds to `127.0.0.1:HTTP_PORT` (default 8080). Public traffic is meant to arrive through Cloudflare Tunnel, so no port has to be opened on the server.
 
 Useful commands:
 
@@ -138,19 +146,22 @@ docker compose down -v            # stop AND delete the database volume
 docker compose exec db psql -U pagecraft -d pagecraft   # open a SQL shell
 ```
 
-### Enabling HTTPS
+## Staging and Production (Cloudflare Tunnel + GitHub Actions)
 
-1. Obtain a certificate (for example `certbot certonly --standalone -d your.domain`).
-2. Copy `fullchain.pem` and `privkey.pem` into `nginx/certs/`.
-3. `cp nginx/conf.d/tls.conf.example nginx/conf.d/tls.conf` and replace `your.domain`.
-4. Remove `nginx/conf.d/default.conf` so port 80 only redirects to HTTPS.
-5. `docker compose restart nginx`.
+The full guide is in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md). In short:
 
-The app detects HTTPS from the `X-Forwarded-Proto` header (nginx sets it) and marks the admin session cookie `Secure` automatically.
+- One directory per environment on the server (`/opt/pagecraft/staging`, `/opt/pagecraft/production`), each with its own `.env` (`COMPOSE_PROJECT_NAME`, `APP_ENV`, ports, secrets).
+- `COMPOSE_PROFILES=tunnel` plus a `CF_TUNNEL_TOKEN` starts a `cloudflared` container that publishes `http://nginx:80` on your Cloudflare hostname. No inbound ports, TLS terminated by Cloudflare, real visitor IPs restored from `CF-Connecting-IP`.
+- Pushing to `dev` builds the image, pushes it to GHCR and deploys **staging**. Pushing to `master` deploys **production** (protect the `production` environment with required reviewers). A manual run can redeploy any previous image tag for a rollback.
+- Each deploy waits for the health check and verifies the public hostname reports the new version.
 
-### Running behind another proxy
+### Direct HTTPS without the tunnel
 
-If something else (Cloudflare, a host-level nginx, Traefik) sits in front of the compose stack, set `TRUST_PROXY=2` in `.env` so client IPs for rate limiting come from the right hop.
+1. Obtain a certificate (for example `certbot certonly --standalone -d your.domain`) and copy `fullchain.pem` and `privkey.pem` into `nginx/certs/`.
+2. `cp nginx/conf.d/tls.conf.example nginx/conf.d/tls.conf`, replace `your.domain`, and remove `nginx/conf.d/default.conf`.
+3. Start with the TLS override: `docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d`.
+
+Either way the app reads `X-Forwarded-Proto` from nginx and marks the admin session cookie `Secure` on HTTPS. Set `COOKIE_SECURE=true` in production to enforce it.
 
 ## Local Development (without Docker)
 
@@ -174,7 +185,10 @@ All variables are documented in [`.env.example`](./.env.example).
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | The single admin account for `/admin` |
 | `SESSION_SECRET` | Signs the admin session cookie (32+ random characters) |
 | `SESSION_HOURS` | Admin session lifetime (default 8) |
-| `HTTP_PORT`, `HTTPS_PORT` | Host ports published by nginx (80 / 443) |
+| `COMPOSE_PROJECT_NAME`, `APP_ENV` | Environment identity; non-production sends `X-Robots-Tag: noindex` |
+| `COMPOSE_PROFILES`, `CF_TUNNEL_TOKEN` | `tunnel` + connector token enables the Cloudflare Tunnel container |
+| `HTTP_BIND`, `HTTP_PORT` | Where nginx is bound on the host (default `127.0.0.1:8080`) |
+| `HTTPS_PORT` | Only with `docker-compose.tls.yml` (direct exposure) |
 | `APP_PORT` | Host port for direct access to the Node app, bound to 127.0.0.1 (3000) |
 | `TRUST_PROXY` | Number of trusted proxy hops (1 for the bundled nginx) |
 | `COOKIE_SECURE` | Force the cookie Secure flag on/off; blank = auto from HTTPS |

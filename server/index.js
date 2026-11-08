@@ -18,6 +18,7 @@ const { validateGeneration } = require('./validate');
 
 const PORT        = Number(process.env.PORT || 3000);
 const HOST        = process.env.HOST || '0.0.0.0';
+const APP_ENV     = process.env.APP_ENV || 'production';   // production | staging | development
 const PUBLIC_DIR  = path.join(__dirname, '..', 'public');
 const TRUST_PROXY = process.env.TRUST_PROXY || '';
 const MAX_ROWS    = Number(process.env.ADMIN_MAX_ROWS || 5000);
@@ -57,6 +58,8 @@ app.use((req, res, next) => {
   if (req.secure || req.get('x-forwarded-proto') === 'https') {
     res.set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
   }
+  // Keep staging / dev deployments out of search engines.
+  if (APP_ENV !== 'production') res.set('X-Robots-Tag', 'noindex, nofollow');
   next();
 });
 
@@ -68,7 +71,7 @@ api.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 api.get('/health', async (req, res) => {
   try {
     await db.ping();
-    res.json({ status: 'ok', db: 'ok', time: new Date().toISOString() });
+    res.json({ status: 'ok', db: 'ok', env: APP_ENV, version: process.env.APP_VERSION || null, time: new Date().toISOString() });
   } catch (err) {
     res.status(503).json({ status: 'degraded', db: 'unreachable' });
   }
@@ -171,7 +174,7 @@ app.use((req, res) => {
     process.exit(1);
   }
   const server = app.listen(PORT, HOST, () => {
-    console.log(`[server] DBIT PageCraft listening on http://${HOST}:${PORT}`);
+    console.log(`[server] DBIT PageCraft (${APP_ENV}) listening on http://${HOST}:${PORT}`);
     if (!auth.configured) console.warn('[server] Admin dashboard disabled (see [auth] message above).');
   });
 

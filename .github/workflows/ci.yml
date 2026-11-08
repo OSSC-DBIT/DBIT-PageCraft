@@ -1,14 +1,12 @@
-name: Build
+name: CI
 
 on:
-  push:
-    branches: [master]
   pull_request:
   workflow_dispatch:
 
 jobs:
   check:
-    name: Syntax check + Docker image
+    name: Syntax check, Docker build, nginx config
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +25,12 @@ jobs:
             node --check "$f"
           done
 
+      - name: Reject em and en dashes
+        run: |
+          if grep -rnP '[\x{2013}\x{2014}]' --include='*.html' --include='*.js' --include='*.css' --include='*.md' --include='*.yml' --include='*.conf' --include='*.inc' --include='*.sh' --exclude-dir=node_modules --exclude-dir=.git . ; then
+            echo "::error::Em/en dashes found. Use a plain hyphen."; exit 1
+          fi
+
       - name: Build Docker image
         run: docker build -t dbit-pagecraft:ci .
 
@@ -37,3 +41,13 @@ jobs:
             -v "$PWD/nginx/conf.d:/etc/nginx/conf.d:ro" \
             --add-host app:127.0.0.1 \
             nginx:1.27-alpine nginx -t
+
+      - name: Validate compose files
+        env:
+          POSTGRES_PASSWORD: x
+          ADMIN_EMAIL: a@b.c
+          ADMIN_PASSWORD: x
+          SESSION_SECRET: x
+        run: |
+          docker compose -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.tls.yml config -q

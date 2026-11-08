@@ -12,3 +12,5 @@ LICENSE
 Dockerfile
 docker-compose*.yml
 tmp
+deploy
+docs

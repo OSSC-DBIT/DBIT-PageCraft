@@ -1,15 +1,19 @@
-# DBIT PageCraft - self-hosted stack: nginx -> app (Node.js) -> db (PostgreSQL)
+# DBIT PageCraft - self-hosted stack
 #
-#   cp .env.example .env         # then fill in the values
-#   docker compose up -d --build
-#   open http://localhost/       (admin at /admin)
+#   cloudflared (optional, profile "tunnel") -> nginx -> app (Node.js) -> db (PostgreSQL)
 #
-# HTTPS: see nginx/conf.d/tls.conf.example
+# One copy of this file per environment on the server, each with its own .env:
+#   /opt/pagecraft/staging/.env      COMPOSE_PROJECT_NAME=pagecraft-staging  APP_ENV=staging
+#   /opt/pagecraft/production/.env   COMPOSE_PROJECT_NAME=pagecraft-prod     APP_ENV=production
+#
+# Local:   cp .env.example .env && docker compose up -d --build
+# Server:  deployed by .github/workflows/deploy.yml via deploy/deploy.sh (pulls the
+#          image from GHCR, no build on the server).
+# Full guide: docs/DEPLOYMENT.md
 
 services:
   db:
     image: postgres:16-alpine
-    container_name: pagecraft-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-pagecraft}
@@ -24,23 +28,25 @@ services:
       retries: 10
     # Uncomment to reach the database from the host (psql, DBeaver, backups):
     # ports:
-    #   - "127.0.0.1:5432:5432"
+    #   - "127.0.0.1:${DB_PORT:-5432}:5432"
 
   app:
+    # Locally: built from this directory. On servers: pulled from GHCR (APP_IMAGE set by deploy.sh).
     build: .
-    image: dbit-pagecraft:latest
-    container_name: pagecraft-app
+    image: ${APP_IMAGE:-dbit-pagecraft:local}
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     expose:
       - "3000"
-    # Direct access to the Node app from this machine only (bypasses nginx).
+    # Direct access to the Node app from this machine only (bypasses nginx), for debugging.
     ports:
       - "127.0.0.1:${APP_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
+      APP_ENV: ${APP_ENV:-production}
+      APP_VERSION: ${APP_VERSION:-}
       DATABASE_URL: postgres://${POSTGRES_USER:-pagecraft}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pagecraft}
       ADMIN_EMAIL: ${ADMIN_EMAIL:?Set ADMIN_EMAIL in .env}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
@@ -51,14 +57,15 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
-    container_name: pagecraft-nginx
     restart: unless-stopped
     depends_on:
       app:
         condition: service_healthy
+    # With Cloudflare Tunnel nothing needs to be public: cloudflared talks to
+    # http://nginx:80 inside this network. The host binding below is only for
+    # local access / debugging and defaults to loopback.
     ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
@@ -69,6 +76,20 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # Cloudflare Tunnel connector. Enabled with COMPOSE_PROFILES=tunnel in .env.
+  # Create the tunnel in Cloudflare Zero Trust, add a public hostname that points
+  # to  http://nginx:80  and paste the connector token into CF_TUNNEL_TOKEN.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN:-}
+    depends_on:
+      nginx:
+        condition: service_healthy
 
 volumes:
   pgdata:
