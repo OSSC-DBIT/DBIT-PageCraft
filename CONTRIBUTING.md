@@ -1,6 +1,6 @@
 # Contributing to DBIT PageCraft
 
-Thanks for your interest in contributing! DBIT PageCraft is maintained and managed by OSSC DBIT. Here's how you can help.
+Thanks for your interest in contributing! DBIT PageCraft is maintained and managed by [OSSC DBIT](https://www.linkedin.com/company/ossc-dbit). Here's how you can help.
 
 ## Getting Started
 
@@ -85,4 +85,4 @@ What CI checks on every pull request: syntax of all server, browser and deploy s
 
 ## Questions?
 
-Reach out at [mithungowda.b7411@gmail.com](mailto:mithungowda.b7411@gmail.com)
+Reach out at [osscdbit@gmail.com](mailto:osscdbit@gmail.com) or on [LinkedIn](https://www.linkedin.com/company/ossc-dbit).

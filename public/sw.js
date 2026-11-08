@@ -7,7 +7,7 @@
 //
 // Bump CACHE_NAME whenever a precached file (or its ?v= version) changes.
 
-const CACHE_NAME = 'dbit-pagecraft-v4';
+const CACHE_NAME = 'dbit-pagecraft-v5';
 const OFFLINE_PAGE = '/404.html';
 
 // Resources to pre-cache on install (app shell)

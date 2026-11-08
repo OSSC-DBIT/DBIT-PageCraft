@@ -4,7 +4,7 @@ All notable changes to DBIT PageCraft are recorded here. The format follows [Kee
 
 ## Unreleased
 
-Nothing yet. Add a line here with your pull request.
+- Contact address is now osscdbit@gmail.com and the OSSC DBIT attribution links to https://www.linkedin.com/company/ossc-dbit (pages, README, CONTRIBUTING, SECURITY, LICENSE, humans.txt, security.txt). Old Vercel hostname in sitemap, robots.txt, security.txt and README badges replaced with dbitpagecraft.webuildnow.in. Service worker cache bumped to v5.
 
 ## 2026-11-08 Self-hosting and continuous deployment
 

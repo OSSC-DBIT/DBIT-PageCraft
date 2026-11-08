@@ -1,6 +1,5 @@
 /* TEAM */
 Creator: Mithun Gowda B
-Contact: mithungowda.b7411@gmail.com
 LinkedIn: https://www.linkedin.com/in/mithungowdab/
 
 Developer: Naren V
@@ -10,6 +9,8 @@ Marketing: Manas Kiran Habbu
 Developer: Lekhan H R
 
 Maintained and managed by: OSSC DBIT
+Contact: osscdbit@gmail.com
+LinkedIn: https://www.linkedin.com/company/ossc-dbit
 
 /* THANKS */
 Mahesh Kumar G

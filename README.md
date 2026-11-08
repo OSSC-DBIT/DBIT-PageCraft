@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-dbitpagecraft.mithungowda.in-4f46e5?style=for-the-badge&logo=googlechrome&logoColor=white)](https://dbitpagecraft.mithungowda.in)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-dbitpagecraft.webuildnow.in-4f46e5?style=for-the-badge&logo=googlechrome&logoColor=white)](https://dbitpagecraft.webuildnow.in)
 
 [![CI](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/ci.yml/badge.svg)](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/ci.yml)
 [![Deploy](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/deploy.yml/badge.svg)](https://github.com/OSSC-DBIT/DBIT-PageCraft/actions/workflows/deploy.yml)
@@ -10,11 +10,11 @@
 [![nginx](https://img.shields.io/badge/Proxy-nginx-009639?style=flat-square&logo=nginx&logoColor=white)](./nginx)
 [![Node.js](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933?style=flat-square&logo=nodedotjs&logoColor=white)](./server)
 [![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](./server/schema.sql)
-[![PWA](https://img.shields.io/badge/PWA-Enabled-5a0fc8?style=flat-square&logo=pwa&logoColor=white)](https://dbitpagecraft.mithungowda.in)
+[![PWA](https://img.shields.io/badge/PWA-Enabled-5a0fc8?style=flat-square&logo=pwa&logoColor=white)](https://dbitpagecraft.webuildnow.in)
 [![Vanilla JS](https://img.shields.io/badge/Frontend-Vanilla%20JS-f7df1e?style=flat-square&logo=javascript&logoColor=black)](./public/js)
 [![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](./LICENSE)
 
-**Maintained and managed by OSSC DBIT**
+**Maintained and managed by [OSSC DBIT](https://www.linkedin.com/company/ossc-dbit)**
 
 </div>
 
@@ -309,7 +309,7 @@ cat backup_2026-11-08.sql | docker compose exec -T db psql -U pagecraft -d pagec
 
 ## Team
 
-- **[Mithun Gowda B](https://www.linkedin.com/in/mithungowdab/)** - Creator and Developer - [mithungowda.b7411@gmail.com](mailto:mithungowda.b7411@gmail.com)
+- **[Mithun Gowda B](https://www.linkedin.com/in/mithungowdab/)** - Creator and Developer
 - **[Naren V](https://www.linkedin.com/in/naren-v-29b39939a/)**
 - **[Harsha N](https://www.linkedin.com/in/harsha1218/)**
 - **[Nevil Anson DSouza](https://www.linkedin.com/in/nevil-anson-dsouza/)**
@@ -318,7 +318,7 @@ cat backup_2026-11-08.sql | docker compose exec -T db psql -U pagecraft -d pagec
 
 *Don Bosco Institute of Technology, Bengaluru*
 
-**Maintained and managed by OSSC DBIT.**
+**Maintained and managed by [OSSC DBIT](https://www.linkedin.com/company/ossc-dbit).** Contact: [osscdbit@gmail.com](mailto:osscdbit@gmail.com)
 
 ## Acknowledgement
 

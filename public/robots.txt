@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://dbitpagecraft.mithungowda.in/sitemap.xml
+Sitemap: https://dbitpagecraft.webuildnow.in/sitemap.xml
